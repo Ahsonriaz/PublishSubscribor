@@ -37,12 +37,13 @@ void extractor(int vector_length)
     for (int i = 0; i < vector_length; i++)
     {
         if (!cv_flag) {
-            mutex_.lock();
+            unique_lock<mutex> lock(mutex_);
+            //mutex_.lock();
             cout << __func__ << ": extracing number-" << i << " = " << random_numbers_vector.back() << endl;
             random_numbers_vector.pop_back();
             cv_flag = true;
             cv_.notify_one();
-            mutex_.unlock();
+            //mutex_.unlock();
         }
         this_thread::sleep_for(chrono::seconds(1));
     }
