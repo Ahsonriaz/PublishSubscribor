@@ -10,63 +10,46 @@ using namespace std;
 vector<int> random_numbers_vector;
 mutex mutex_;
 condition_variable cv_;
-bool cv_flag = false;
+bool cv_flag = true;
 
 void publisher(int vector_length)
 {
-
-    unique_lock<mutex> lock(mutex_);
-
     for (int i = 0; i < vector_length; i++)
     {
-
-        while (!cv_flag)
+        if (cv_flag)
         {
-
-            cv_.wait(lock);
+            unique_lock<mutex> lock(mutex_);
+            int random_number = rand();
+            random_numbers_vector.push_back(random_number);
+            cout<<__func__<<": publishing number: " << random_number << endl;
+            cv_flag = false;
         }
 
-        int random_number = rand();
-        random_numbers_vector.push_back(random_number);
-        cout << random_number;
-        cv_flag = true;
+        while (!cv_flag) {
+            unique_lock<mutex> lock(mutex_);
+            cv_.wait(lock);
+        }
     }
 }
 
 void extractor(int vector_length)
 {
-
-    unique_lock<mutex> lock(mutex_);
-    //RAII->unlock automatically
-    //always unlocks when it gets out of scope
-    //never use rescources without unique or lockguards
-
     for (int i = 0; i < vector_length; i++)
     {
-
-        while (random_numbers_vector.size() < 1)
-        {
-            cv_flag = false;
+        if (!cv_flag) {
+            mutex_.lock();
+            cout << __func__ << ": extracing number-" << i << " = " << random_numbers_vector.back() << endl;
+            random_numbers_vector.pop_back();
+            cv_flag = true;
             cv_.notify_one();
-
-            this_thread::sleep_for(chrono::seconds(1));
+            mutex_.unlock();
         }
-
-        cout << "number" << i << " = " << random_numbers_vector.back() << endl;
-
-        random_numbers_vector.pop_back();
-
-        cv_flag = false;
-        cv_.notify_one();
+        this_thread::sleep_for(chrono::seconds(1));
     }
 }
 
-//google style guide
-//
-
 int main()
 {
-
     int iterator = 10;
     thread publish(publisher, iterator);
     thread extract(extractor, iterator);
@@ -74,3 +57,4 @@ int main()
     publish.join();
     extract.join();
 }
+
